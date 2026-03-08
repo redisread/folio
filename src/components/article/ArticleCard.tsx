@@ -1,6 +1,7 @@
 "use client";
 import { useArticleStore, type ArticleListItem } from "@/lib/store/articleStore";
 import { useFeedStore } from "@/lib/store/feedStore";
+import { useMobileStore } from "@/lib/store/mobileStore";
 import { formatRelativeTime } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
 
@@ -12,13 +13,22 @@ interface ArticleCardProps {
 export function ArticleCard({ article, index }: ArticleCardProps) {
 	const { selectedArticleId, selectArticle } = useArticleStore();
 	const { feeds } = useFeedStore();
+	const { isMobile, showDetail } = useMobileStore();
 	const isSelected = selectedArticleId === article.id;
 
 	const feed = feeds.find((f) => f.id === article.feedId);
 
+	const handleClick = () => {
+		selectArticle(article.id);
+		// On mobile, switch to detail view when selecting an article
+		if (isMobile) {
+			showDetail();
+		}
+	};
+
 	return (
 		<button
-			onClick={() => selectArticle(article.id)}
+			onClick={handleClick}
 			className={cn(
 				"w-full text-left px-4 py-3 border-b border-[var(--border-light)]",
 				"transition-all duration-[var(--transition-base)]",
