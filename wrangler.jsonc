@@ -31,14 +31,14 @@
 		{
 			"binding": "DB",
 			"database_name": "folio-rss-db",
-			"database_id": "local-folio-rss-db",
+			"database_id": "26cad736-cb30-40f5-94ae-32444765c502",
 			"migrations_dir": "drizzle/migrations"
 		}
 	],
 	"kv_namespaces": [
 		{
 			"binding": "FOLIO_KV",
-			"id": "local-folio-kv"
+			"id": "c11fb70b8ef34b4c93063c4a6008c62c"
 		}
 	],
 	"r2_buckets": [
