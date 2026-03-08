@@ -8,6 +8,22 @@ const nextConfig: NextConfig = {
 			{ protocol: "http", hostname: "**" },
 		],
 	},
+	// Turbopack 配置：排除原生模块
+	turbopack: {
+		resolveAlias: {
+			"better-sqlite3": "./node_modules/drizzle-orm/sqlite-core",
+		},
+	},
+	// 排除服务器端原生模块
+	webpack: (config, { isServer }) => {
+		if (isServer) {
+			config.externals = config.externals || [];
+			if (Array.isArray(config.externals)) {
+				config.externals.push("better-sqlite3");
+			}
+		}
+		return config;
+	},
 };
 
 export default nextConfig;

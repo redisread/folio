@@ -10,7 +10,12 @@
 		"deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
 		"upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
 		"preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-		"cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
+		"cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts",
+		"db:migrate:local": "wrangler d1 migrations apply folio-rss-db --local",
+		"db:migrate:create": "drizzle-kit generate",
+		"db:reset:local": "rm -rf .wrangler/state/v3/d1 && echo '本地数据库已重置'",
+		"dev:setup": "npm run db:migrate:local && npm run dev",
+		"preview:setup": "npm run db:migrate:local && npm run preview"
 	},
 	"dependencies": {
 		"@libsql/client": "^0.17.0",
