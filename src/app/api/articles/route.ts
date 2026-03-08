@@ -1,10 +1,14 @@
-import { eq, and, desc, asc, sql, isNull } from "drizzle-orm";
-import { apiSuccess, apiError, getDatabase } from "@/lib/api";
+import { eq, and, desc, asc, sql } from "drizzle-orm";
+import { apiSuccess, apiError, getDatabase, getAuthenticatedUser } from "@/lib/api";
 import { articles, feeds } from "@/lib/db/schema";
 
-// GET /api/articles — 获取文章列表（支持分页和筛选）
+// GET /api/articles — 获取当前用户的文章列表（支持分页和筛选）
 export async function GET(request: Request) {
 	try {
+		const auth = await getAuthenticatedUser(request);
+		if (!auth) return apiError("未登录", 401);
+		const { userId } = auth;
+
 		const { searchParams } = new URL(request.url);
 		const feedId = searchParams.get("feedId");
 		const folderId = searchParams.get("folderId");
@@ -15,28 +19,36 @@ export async function GET(request: Request) {
 
 		const db = getDatabase();
 
-		// 构建查询条件
-		const conditions = [];
-
+		// 先获取当前用户所有 feedId（或按条件过滤）
+		let userFeedIds: string[];
 		if (feedId) {
-			conditions.push(eq(articles.feedId, feedId));
+			// 验证该 feed 属于当前用户
+			const [feed] = await db.select({ id: feeds.id }).from(feeds).where(and(eq(feeds.id, feedId), eq(feeds.userId, userId)));
+			if (!feed) return apiSuccess({ articles: [], total: 0, page, pageSize });
+			userFeedIds = [feed.id];
 		} else if (folderId) {
-			// 获取文件夹内所有订阅源的文章
 			const folderFeeds = await db
 				.select({ id: feeds.id })
 				.from(feeds)
-				.where(eq(feeds.folderId, folderId));
+				.where(and(eq(feeds.folderId, folderId), eq(feeds.userId, userId)));
 			if (folderFeeds.length === 0) return apiSuccess({ articles: [], total: 0, page, pageSize });
-			const feedIds = folderFeeds.map((f) => f.id);
-			// SQLite 不支持 inArray，手动构建 OR 条件
-			conditions.push(sql`${articles.feedId} IN (${sql.join(feedIds.map((id) => sql`${id}`), sql`, `)})`);
+			userFeedIds = folderFeeds.map((f) => f.id);
+		} else {
+			const userFeeds = await db.select({ id: feeds.id }).from(feeds).where(eq(feeds.userId, userId));
+			if (userFeeds.length === 0) return apiSuccess({ articles: [], total: 0, page, pageSize });
+			userFeedIds = userFeeds.map((f) => f.id);
 		}
+
+		// 构建查询条件
+		const conditions = [
+			sql`${articles.feedId} IN (${sql.join(userFeedIds.map((id) => sql`${id}`), sql`, `)})`,
+		];
 
 		if (filter === "starred") conditions.push(eq(articles.isStarred, true));
 		if (filter === "read_later") conditions.push(eq(articles.isReadLater, true));
 		if (filter === "unread") conditions.push(eq(articles.isRead, false));
 
-		const where = conditions.length > 0 ? and(...conditions) : undefined;
+		const where = and(...conditions);
 		const orderBy = sortOrder === "asc" ? asc(articles.publishedAt) : desc(articles.publishedAt);
 		const offset = (page - 1) * pageSize;
 

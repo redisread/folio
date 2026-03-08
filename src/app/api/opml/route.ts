@@ -1,18 +1,22 @@
-import { eq, asc } from "drizzle-orm";
-import { apiSuccess, apiError, getDatabase } from "@/lib/api";
+import { eq, and, asc } from "drizzle-orm";
+import { apiSuccess, apiError, getDatabase, getAuthenticatedUser } from "@/lib/api";
 import { feeds, folders } from "@/lib/db/schema";
 import { parseOpml, generateOpml } from "@/lib/rss/opml";
 import { fetchFeed } from "@/lib/rss/fetcher";
 import { getFaviconUrl } from "@/lib/utils/readability";
 
-// GET /api/opml — 导出 OPML
-export async function GET() {
+// GET /api/opml — 导出当前用户的 OPML
+export async function GET(request: Request) {
 	try {
+		const auth = await getAuthenticatedUser(request);
+		if (!auth) return apiError("未登录", 401);
+		const { userId } = auth;
+
 		const db = getDatabase();
 
 		const [feedList, folderList] = await Promise.all([
-			db.select().from(feeds).orderBy(asc(feeds.sortOrder)),
-			db.select().from(folders).orderBy(asc(folders.sortOrder)),
+			db.select().from(feeds).where(eq(feeds.userId, userId)).orderBy(asc(feeds.sortOrder)),
+			db.select().from(folders).where(eq(folders.userId, userId)).orderBy(asc(folders.sortOrder)),
 		]);
 
 		const folderMap = new Map(folderList.map((f) => [f.id, f.name]));
@@ -37,9 +41,13 @@ export async function GET() {
 	}
 }
 
-// POST /api/opml — 导入 OPML
+// POST /api/opml — 为当前用户导入 OPML
 export async function POST(request: Request) {
 	try {
+		const auth = await getAuthenticatedUser(request);
+		if (!auth) return apiError("未登录", 401);
+		const { userId } = auth;
+
 		const text = await request.text();
 		if (!text.trim()) return apiError("OPML 内容不能为空");
 
@@ -48,9 +56,9 @@ export async function POST(request: Request) {
 
 		const db = getDatabase();
 
-		// 创建文件夹映射（文件夹名 -> id）
+		// 创建文件夹映射（文件夹名 -> id），仅限当前用户
 		const folderNameMap = new Map<string, string>();
-		const existingFolders = await db.select().from(folders);
+		const existingFolders = await db.select().from(folders).where(eq(folders.userId, userId));
 		for (const f of existingFolders) {
 			folderNameMap.set(f.name, f.id);
 		}
@@ -59,7 +67,7 @@ export async function POST(request: Request) {
 		const uniqueFolderNames = [...new Set(parsedFeeds.map((f) => f.folderName).filter(Boolean) as string[])];
 		for (const name of uniqueFolderNames) {
 			if (!folderNameMap.has(name)) {
-				const [folder] = await db.insert(folders).values({ name }).returning();
+				const [folder] = await db.insert(folders).values({ userId, name }).returning();
 				folderNameMap.set(name, folder.id);
 			}
 		}
@@ -68,8 +76,11 @@ export async function POST(request: Request) {
 		const results = [];
 		for (const opmlFeed of parsedFeeds) {
 			try {
-				// 检查是否已存在
-				const [existing] = await db.select().from(feeds).where(eq(feeds.feedUrl, opmlFeed.xmlUrl));
+				// 检查当前用户是否已订阅该 Feed
+				const [existing] = await db
+					.select()
+					.from(feeds)
+					.where(and(eq(feeds.feedUrl, opmlFeed.xmlUrl), eq(feeds.userId, userId)));
 				if (existing) {
 					results.push({ url: opmlFeed.xmlUrl, success: false, error: "已存在" });
 					continue;
@@ -80,6 +91,7 @@ export async function POST(request: Request) {
 				const folderId = opmlFeed.folderName ? folderNameMap.get(opmlFeed.folderName) : null;
 
 				await db.insert(feeds).values({
+					userId,
 					folderId: folderId ?? null,
 					title: parsed.title || opmlFeed.title,
 					url: parsed.siteUrl || opmlFeed.htmlUrl || opmlFeed.xmlUrl,

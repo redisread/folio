@@ -1,23 +1,30 @@
-import { eq, asc, sql } from "drizzle-orm";
-import { apiSuccess, apiError, getDatabase } from "@/lib/api";
+import { eq, and, asc, sql } from "drizzle-orm";
+import { apiSuccess, apiError, getDatabase, getAuthenticatedUser } from "@/lib/api";
 import { feeds, articles } from "@/lib/db/schema";
 import { fetchFeed } from "@/lib/rss/fetcher";
 import { discoverFeedUrl } from "@/lib/rss/parser";
 import { getFaviconUrl } from "@/lib/utils/readability";
 
-// GET /api/feeds — 获取所有订阅源（含未读数）
+// GET /api/feeds — 获取当前用户的所有订阅源（含未读数）
 export async function GET(request: Request) {
 	try {
+		const auth = await getAuthenticatedUser(request);
+		if (!auth) return apiError("未登录", 401);
+		const { userId } = auth;
+
 		const { searchParams } = new URL(request.url);
 		const folderId = searchParams.get("folderId");
 
 		const db = getDatabase();
 
-		// 获取订阅源列表
 		const feedList = await db
 			.select()
 			.from(feeds)
-			.where(folderId ? eq(feeds.folderId, folderId) : undefined)
+			.where(
+				folderId
+					? and(eq(feeds.userId, userId), eq(feeds.folderId, folderId))
+					: eq(feeds.userId, userId)
+			)
 			.orderBy(asc(feeds.sortOrder));
 
 		// 批量获取未读数
@@ -43,9 +50,13 @@ export async function GET(request: Request) {
 	}
 }
 
-// POST /api/feeds — 添加订阅源
+// POST /api/feeds — 为当前用户添加订阅源
 export async function POST(request: Request) {
 	try {
+		const auth = await getAuthenticatedUser(request);
+		if (!auth) return apiError("未登录", 401);
+		const { userId } = auth;
+
 		const body = await request.json() as { url?: string; folderId?: string };
 		if (!body.url?.trim()) return apiError("订阅源 URL 不能为空");
 
@@ -60,18 +71,26 @@ export async function POST(request: Request) {
 
 		const db = getDatabase();
 
-		// 检查是否已存在
-		const [existing] = await db.select().from(feeds).where(eq(feeds.feedUrl, feedUrl));
+		// 检查当前用户是否已订阅该 Feed
+		const [existing] = await db
+			.select()
+			.from(feeds)
+			.where(and(eq(feeds.feedUrl, feedUrl), eq(feeds.userId, userId)));
 		if (existing) return apiError("该订阅源已存在", 409);
 
 		const faviconUrl = parsed.faviconUrl ?? getFaviconUrl(parsed.siteUrl);
 
-		const existingFeeds = await db.select().from(feeds).orderBy(asc(feeds.sortOrder));
+		const existingFeeds = await db
+			.select()
+			.from(feeds)
+			.where(eq(feeds.userId, userId))
+			.orderBy(asc(feeds.sortOrder));
 		const maxOrder = existingFeeds.length > 0 ? (existingFeeds[existingFeeds.length - 1].sortOrder ?? 0) + 1 : 0;
 
 		const [feed] = await db
 			.insert(feeds)
 			.values({
+				userId,
 				folderId: body.folderId ?? null,
 				title: parsed.title,
 				url: parsed.siteUrl,

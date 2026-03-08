@@ -1,22 +1,26 @@
-import { eq, asc } from "drizzle-orm";
-import { apiSuccess, apiError, getDatabase } from "@/lib/api";
+import { eq, and, asc } from "drizzle-orm";
+import { apiSuccess, apiError, getDatabase, getAuthenticatedUser } from "@/lib/api";
 import { feeds, articles } from "@/lib/db/schema";
 import { fetchFeed } from "@/lib/rss/fetcher";
 
-// POST /api/refresh — 刷新 RSS 订阅源
+// POST /api/refresh — 刷新当前用户的 RSS 订阅源
 export async function POST(request: Request) {
 	try {
+		const auth = await getAuthenticatedUser(request);
+		if (!auth) return apiError("未登录", 401);
+		const { userId } = auth;
+
 		const body = await request.json().catch(() => ({})) as { feedId?: string };
 		const db = getDatabase();
 
 		let feedList;
 		if (body.feedId) {
-			// 刷新单个订阅源
-			feedList = await db.select().from(feeds).where(eq(feeds.id, body.feedId));
+			// 刷新单个订阅源（验证归属）
+			feedList = await db.select().from(feeds).where(and(eq(feeds.id, body.feedId), eq(feeds.userId, userId)));
 			if (feedList.length === 0) return apiError("订阅源不存在", 404);
 		} else {
-			// 刷新所有订阅源
-			feedList = await db.select().from(feeds).orderBy(asc(feeds.sortOrder));
+			// 刷新当前用户所有订阅源
+			feedList = await db.select().from(feeds).where(eq(feeds.userId, userId)).orderBy(asc(feeds.sortOrder));
 		}
 
 		const results = [];

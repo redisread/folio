@@ -1,15 +1,19 @@
-import { eq } from "drizzle-orm";
-import { apiSuccess, apiError, getDatabase } from "@/lib/api";
+import { eq, and } from "drizzle-orm";
+import { apiSuccess, apiError, getDatabase, getAuthenticatedUser } from "@/lib/api";
 import { feeds } from "@/lib/db/schema";
 
 type Params = { params: Promise<{ id: string }> };
 
 // GET /api/feeds/[id]
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(request: Request, { params }: Params) {
 	try {
+		const auth = await getAuthenticatedUser(request);
+		if (!auth) return apiError("未登录", 401);
+		const { userId } = auth;
+
 		const { id } = await params;
 		const db = getDatabase();
-		const [feed] = await db.select().from(feeds).where(eq(feeds.id, id));
+		const [feed] = await db.select().from(feeds).where(and(eq(feeds.id, id), eq(feeds.userId, userId)));
 		if (!feed) return apiError("订阅源不存在", 404);
 		return apiSuccess(feed);
 	} catch (err) {
@@ -20,6 +24,10 @@ export async function GET(_req: Request, { params }: Params) {
 // PUT /api/feeds/[id]
 export async function PUT(request: Request, { params }: Params) {
 	try {
+		const auth = await getAuthenticatedUser(request);
+		if (!auth) return apiError("未登录", 401);
+		const { userId } = auth;
+
 		const { id } = await params;
 		const body = await request.json() as {
 			title?: string;
@@ -28,7 +36,7 @@ export async function PUT(request: Request, { params }: Params) {
 		};
 
 		const db = getDatabase();
-		const [existing] = await db.select().from(feeds).where(eq(feeds.id, id));
+		const [existing] = await db.select().from(feeds).where(and(eq(feeds.id, id), eq(feeds.userId, userId)));
 		if (!existing) return apiError("订阅源不存在", 404);
 
 		const updates: Partial<typeof existing> = {
@@ -41,7 +49,7 @@ export async function PUT(request: Request, { params }: Params) {
 		const [updated] = await db
 			.update(feeds)
 			.set(updates)
-			.where(eq(feeds.id, id))
+			.where(and(eq(feeds.id, id), eq(feeds.userId, userId)))
 			.returning();
 
 		return apiSuccess(updated);
@@ -51,14 +59,18 @@ export async function PUT(request: Request, { params }: Params) {
 }
 
 // DELETE /api/feeds/[id]
-export async function DELETE(_req: Request, { params }: Params) {
+export async function DELETE(request: Request, { params }: Params) {
 	try {
+		const auth = await getAuthenticatedUser(request);
+		if (!auth) return apiError("未登录", 401);
+		const { userId } = auth;
+
 		const { id } = await params;
 		const db = getDatabase();
-		const [existing] = await db.select().from(feeds).where(eq(feeds.id, id));
+		const [existing] = await db.select().from(feeds).where(and(eq(feeds.id, id), eq(feeds.userId, userId)));
 		if (!existing) return apiError("订阅源不存在", 404);
 
-		await db.delete(feeds).where(eq(feeds.id, id));
+		await db.delete(feeds).where(and(eq(feeds.id, id), eq(feeds.userId, userId)));
 		return apiSuccess({ id });
 	} catch (err) {
 		return apiError(err instanceof Error ? err.message : "删除订阅源失败", 500);

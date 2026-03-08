@@ -7,6 +7,7 @@ import { SmartGroups } from "@/components/sidebar/SmartGroups";
 import { FolderTree } from "@/components/sidebar/FolderTree";
 import { AddFeedDialog } from "@/components/sidebar/AddFeedDialog";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { UserMenu } from "@/components/sidebar/UserMenu";
 import { cn } from "@/lib/utils/cn";
 
 export function Sidebar() {
@@ -130,6 +131,9 @@ export function Sidebar() {
 					{feeds.length} 个订阅源
 				</span>
 			</div>
+
+			{/* 用户信息 + 退出 */}
+			<UserMenu />
 
 			{/* 添加订阅源弹窗 */}
 			{showAddFeed && <AddFeedDialog onClose={() => setShowAddFeed(false)} />}
