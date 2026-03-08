@@ -45,14 +45,27 @@ export function Sidebar({ mobile }: SidebarProps) {
 					<h1 className="text-base font-semibold text-[var(--text-primary)]">
 						Folio
 					</h1>
-					<button
-						onClick={closeSidebar}
-						className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors"
-					>
-						<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-							<path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-						</svg>
-					</button>
+					<div className="flex items-center gap-1">
+						{/* 移动端添加订阅源按钮 */}
+						<button
+							onClick={() => setShowAddFeed(true)}
+							title="添加订阅源"
+							className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors"
+						>
+							<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+								<path d="M12 4.5v15m7.5-7.5h-15" />
+							</svg>
+						</button>
+						{/* 关闭侧边栏按钮 */}
+						<button
+							onClick={closeSidebar}
+							className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors"
+						>
+							<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+								<path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+							</svg>
+						</button>
+					</div>
 				</div>
 			)}
 
