@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import withSerwist from "@serwist/next";
 
 const nextConfig: NextConfig = {
 	// 图片域名白名单（允许外部 favicon 和文章图片）
@@ -26,7 +27,13 @@ const nextConfig: NextConfig = {
 	},
 };
 
-export default nextConfig;
+// Serwist PWA 配置
+const withPWA = withSerwist({
+	swSrc: "src/app/sw.ts",
+	swDest: "public/sw.js",
+});
+
+export default withPWA(nextConfig);
 
 // Enable calling `getCloudflareContext()` in `next dev`.
 // See https://opennext.js.org/cloudflare/bindings#local-access-to-bindings.
