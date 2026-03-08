@@ -107,7 +107,7 @@ export function ArticleList({ mobile }: ArticleListProps) {
 				) : (
 					<>
 						{articles.map((article, index) => (
-							<ArticleCard key={article.id} article={article} index={index} mobile={mobile} />
+							<ArticleCard key={article.id} article={article} index={index} />
 						))}
 
 						{/* 无限滚动触发器 */}

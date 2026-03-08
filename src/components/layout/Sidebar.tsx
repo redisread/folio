@@ -95,14 +95,10 @@ export function Sidebar({ mobile }: SidebarProps) {
 			)}
 
 			{/* 搜索框 */}
-			<div className={cn(mobile && "px-3 pt-3")}>
-				<SearchBox mobile={mobile} />
-			</div>
+			<SearchBox />
 
 			{/* 智能分组 */}
-			<div className={cn(mobile && "px-3")}>
-				<SmartGroups mobile={mobile} />
-			</div>
+			<SmartGroups />
 
 			{/* 分隔线 */}
 			<div className="mx-3 my-2 border-t border-[var(--border-light)]" />
@@ -150,7 +146,7 @@ export function Sidebar({ mobile }: SidebarProps) {
 
 			{/* 文件夹树（可滚动） */}
 			<div className="flex-1 overflow-y-auto pb-2">
-				<FolderTree mobile={mobile} onItemClick={mobile ? closeSidebar : undefined} />
+				<FolderTree />
 			</div>
 
 			{/* 底部工具栏 */}
@@ -165,7 +161,7 @@ export function Sidebar({ mobile }: SidebarProps) {
 			<UserMenu />
 
 			{/* 添加订阅源弹窗 */}
-			{showAddFeed && <AddFeedDialog onClose={() => setShowAddFeed(false)} mobile={mobile} />}
+			{showAddFeed && <AddFeedDialog onClose={() => setShowAddFeed(false)} />}
 		</div>
 	);
 }

@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMobileStore } from "@/lib/store/mobileStore";
-import { Sidebar } from "../sidebar/Sidebar";
+import { Sidebar } from "./Sidebar";
 import { ArticleList } from "./ArticleList";
 import { ArticleDetail } from "./ArticleDetail";
 import { cn } from "@/lib/utils/cn";
@@ -80,7 +80,7 @@ export function MobileLayout() {
 							transition={{ type: "spring", damping: 25, stiffness: 200 }}
 							className="absolute inset-0 z-20 bg-[var(--bg-main)]"
 						>
-							<ArticleDetail mobile />
+							<ArticleDetail />
 						</motion.div>
 					)}
 				</AnimatePresence>
