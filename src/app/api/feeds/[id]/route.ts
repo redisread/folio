@@ -1,0 +1,66 @@
+import { eq } from "drizzle-orm";
+import { apiSuccess, apiError, getDatabase } from "@/lib/api";
+import { feeds } from "@/lib/db/schema";
+
+type Params = { params: Promise<{ id: string }> };
+
+// GET /api/feeds/[id]
+export async function GET(_req: Request, { params }: Params) {
+	try {
+		const { id } = await params;
+		const db = getDatabase();
+		const [feed] = await db.select().from(feeds).where(eq(feeds.id, id));
+		if (!feed) return apiError("订阅源不存在", 404);
+		return apiSuccess(feed);
+	} catch (err) {
+		return apiError(err instanceof Error ? err.message : "获取订阅源失败", 500);
+	}
+}
+
+// PUT /api/feeds/[id]
+export async function PUT(request: Request, { params }: Params) {
+	try {
+		const { id } = await params;
+		const body = await request.json() as {
+			title?: string;
+			folderId?: string | null;
+			sortOrder?: number;
+		};
+
+		const db = getDatabase();
+		const [existing] = await db.select().from(feeds).where(eq(feeds.id, id));
+		if (!existing) return apiError("订阅源不存在", 404);
+
+		const updates: Partial<typeof existing> = {
+			updatedAt: new Date().toISOString(),
+		};
+		if (body.title !== undefined) updates.title = body.title.trim();
+		if ("folderId" in body) updates.folderId = body.folderId;
+		if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder;
+
+		const [updated] = await db
+			.update(feeds)
+			.set(updates)
+			.where(eq(feeds.id, id))
+			.returning();
+
+		return apiSuccess(updated);
+	} catch (err) {
+		return apiError(err instanceof Error ? err.message : "更新订阅源失败", 500);
+	}
+}
+
+// DELETE /api/feeds/[id]
+export async function DELETE(_req: Request, { params }: Params) {
+	try {
+		const { id } = await params;
+		const db = getDatabase();
+		const [existing] = await db.select().from(feeds).where(eq(feeds.id, id));
+		if (!existing) return apiError("订阅源不存在", 404);
+
+		await db.delete(feeds).where(eq(feeds.id, id));
+		return apiSuccess({ id });
+	} catch (err) {
+		return apiError(err instanceof Error ? err.message : "删除订阅源失败", 500);
+	}
+}
