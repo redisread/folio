@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useFeedStore } from "@/lib/store/feedStore";
 import { useUiStore } from "@/lib/store/uiStore";
+import { useMobileStore } from "@/lib/store/mobileStore";
 import { SearchBox } from "@/components/sidebar/SearchBox";
 import { SmartGroups } from "@/components/sidebar/SmartGroups";
 import { FolderTree } from "@/components/sidebar/FolderTree";
@@ -10,9 +11,14 @@ import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { UserMenu } from "@/components/sidebar/UserMenu";
 import { cn } from "@/lib/utils/cn";
 
-export function Sidebar() {
+interface SidebarProps {
+	mobile?: boolean;
+}
+
+export function Sidebar({ mobile }: SidebarProps) {
 	const { folders, feeds, addFolder, isLoading, refresh, fetchFolders, fetchFeeds } = useFeedStore();
 	const { isSidebarCollapsed } = useUiStore();
+	const { closeSidebar } = useMobileStore();
 	const [showAddFeed, setShowAddFeed] = useState(false);
 	const [showAddFolder, setShowAddFolder] = useState(false);
 	const [newFolderName, setNewFolderName] = useState("");
@@ -32,48 +38,71 @@ export function Sidebar() {
 	};
 
 	return (
-		<div className="flex flex-col h-full bg-[var(--bg-sidebar)] border-r border-[var(--border)]">
-			{/* 顶部工具栏 */}
-			<div className="flex items-center justify-between px-3 pt-4 pb-2 shrink-0">
-				<h1 className="text-sm font-semibold text-[var(--text-primary)] tracking-tight">
-					Folio
-				</h1>
-				<div className="flex items-center gap-1">
-					{/* 刷新按钮 */}
+		<div className="flex flex-col h-full bg-[var(--bg-sidebar)]">
+			{/* 移动端头部 - 带关闭按钮 */}
+			{mobile && (
+				<div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0 border-b border-[var(--border-light)]">
+					<h1 className="text-base font-semibold text-[var(--text-primary)]">
+						Folio
+					</h1>
 					<button
-						onClick={() => refresh()}
-						disabled={isLoading}
-						title="刷新所有订阅源"
-						className={cn(
-							"w-7 h-7 flex items-center justify-center rounded-lg",
-							"text-[var(--text-tertiary)] hover:text-[var(--text-primary)]",
-							"hover:bg-[var(--bg-card-hover)] transition-colors",
-							isLoading && "animate-spin"
-						)}
+						onClick={closeSidebar}
+						className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors"
 					>
-						<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-						</svg>
-					</button>
-
-					{/* 添加订阅源按钮 */}
-					<button
-						onClick={() => setShowAddFeed(true)}
-						title="添加订阅源"
-						className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors"
-					>
-						<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-							<path d="M12 4.5v15m7.5-7.5h-15" />
+						<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+							<path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
 						</svg>
 					</button>
 				</div>
-			</div>
+			)}
+
+			{/* 桌面端头部 */}
+			{!mobile && (
+				<div className="flex items-center justify-between px-3 pt-4 pb-2 shrink-0">
+					<h1 className="text-sm font-semibold text-[var(--text-primary)] tracking-tight">
+						Folio
+					</h1>
+					<div className="flex items-center gap-1">
+						{/* 刷新按钮 */}
+						<button
+							onClick={() => refresh()}
+							disabled={isLoading}
+							title="刷新所有订阅源"
+							className={cn(
+								"w-7 h-7 flex items-center justify-center rounded-lg",
+								"text-[var(--text-tertiary)] hover:text-[var(--text-primary)]",
+								"hover:bg-[var(--bg-card-hover)] transition-colors",
+								isLoading && "animate-spin"
+							)}
+						>
+							<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+								<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+							</svg>
+						</button>
+
+						{/* 添加订阅源按钮 */}
+						<button
+							onClick={() => setShowAddFeed(true)}
+							title="添加订阅源"
+							className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors"
+						>
+							<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+								<path d="M12 4.5v15m7.5-7.5h-15" />
+							</svg>
+						</button>
+					</div>
+				</div>
+			)}
 
 			{/* 搜索框 */}
-			<SearchBox />
+			<div className={cn(mobile && "px-3 pt-3")}>
+				<SearchBox mobile={mobile} />
+			</div>
 
 			{/* 智能分组 */}
-			<SmartGroups />
+			<div className={cn(mobile && "px-3")}>
+				<SmartGroups mobile={mobile} />
+			</div>
 
 			{/* 分隔线 */}
 			<div className="mx-3 my-2 border-t border-[var(--border-light)]" />
@@ -121,7 +150,7 @@ export function Sidebar() {
 
 			{/* 文件夹树（可滚动） */}
 			<div className="flex-1 overflow-y-auto pb-2">
-				<FolderTree />
+				<FolderTree mobile={mobile} onItemClick={mobile ? closeSidebar : undefined} />
 			</div>
 
 			{/* 底部工具栏 */}
@@ -136,7 +165,7 @@ export function Sidebar() {
 			<UserMenu />
 
 			{/* 添加订阅源弹窗 */}
-			{showAddFeed && <AddFeedDialog onClose={() => setShowAddFeed(false)} />}
+			{showAddFeed && <AddFeedDialog onClose={() => setShowAddFeed(false)} mobile={mobile} />}
 		</div>
 	);
 }

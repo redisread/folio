@@ -2,15 +2,21 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useArticleStore } from "@/lib/store/articleStore";
 import { useFeedStore } from "@/lib/store/feedStore";
+import { useMobileStore } from "@/lib/store/mobileStore";
 import { ArticleCard } from "@/components/article/ArticleCard";
 import { ArticleCardSkeleton } from "@/components/article/ArticleSkeleton";
 import { EmptyState } from "@/components/common/EmptyState";
 import { cn } from "@/lib/utils/cn";
 
-export function ArticleList() {
+interface ArticleListProps {
+	mobile?: boolean;
+}
+
+export function ArticleList({ mobile }: ArticleListProps) {
 	const { articles, isLoading, hasMore, fetchMoreArticles, total, sortOrder, setSortOrder } =
 		useArticleStore();
 	const { selectedSource } = useFeedStore();
+	const { openSidebar } = useMobileStore();
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	// 无限滚动加载
@@ -33,22 +39,39 @@ export function ArticleList() {
 	// 获取标题
 	const getTitle = () => {
 		switch (selectedSource.type) {
-			case "all": return "全部文章";
-			case "starred": return "收藏";
-			case "read_later": return "稍后阅读";
-			default: return "文章";
+			case "all":
+				return "全部文章";
+			case "starred":
+				return "收藏";
+			case "read_later":
+				return "稍后阅读";
+			default:
+				return "文章";
 		}
 	};
 
 	return (
-		<div className="flex flex-col h-full border-r border-[var(--border)]">
+		<div className={cn("flex flex-col h-full", !mobile && "border-r border-[var(--border)]")}>
 			{/* 列表标题栏 */}
 			<div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] shrink-0">
-				<div>
-					<h2 className="text-sm font-semibold text-[var(--text-primary)]">{getTitle()}</h2>
-					{total > 0 && (
-						<p className="text-[11px] text-[var(--text-tertiary)]">{total} 篇</p>
+				<div className="flex items-center gap-3">
+					{/* 移动端：打开侧边栏按钮 */}
+					{mobile && (
+						<button
+							onClick={openSidebar}
+							className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] transition-colors"
+						>
+							<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+								<path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+							</svg>
+						</button>
 					)}
+					<div>
+						<h2 className="text-sm font-semibold text-[var(--text-primary)]">{getTitle()}</h2>
+						{total > 0 && (
+							<p className="text-[11px] text-[var(--text-tertiary)]">{total} 篇</p>
+						)}
+					</div>
 				</div>
 				{/* 排序切换 */}
 				<button
@@ -84,7 +107,7 @@ export function ArticleList() {
 				) : (
 					<>
 						{articles.map((article, index) => (
-							<ArticleCard key={article.id} article={article} index={index} />
+							<ArticleCard key={article.id} article={article} index={index} mobile={mobile} />
 						))}
 
 						{/* 无限滚动触发器 */}

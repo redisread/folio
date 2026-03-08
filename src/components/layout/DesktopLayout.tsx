@@ -11,7 +11,7 @@ const MAX_SIDEBAR_WIDTH = 320;
 const MIN_LIST_WIDTH = 280;
 const MAX_LIST_WIDTH = 480;
 
-export function ThreeColumnLayout() {
+export function DesktopLayout() {
 	const { sidebarWidth, articleListWidth, isSidebarCollapsed, setSidebarWidth, setArticleListWidth } =
 		useUiStore();
 
