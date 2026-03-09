@@ -28,6 +28,7 @@ interface FeedStore {
 	addFeed: (url: string, folderId?: string) => Promise<void>;
 	deleteFeed: (feedId: string) => Promise<void>;
 	moveFeedToFolder: (feedId: string, folderId: string | null) => Promise<void>;
+	updateFeed: (feedId: string, data: { title?: string; url?: string }) => Promise<void>;
 	addFolder: (name: string, color?: string) => Promise<void>;
 	deleteFolder: (folderId: string) => Promise<void>;
 	deleteFolderWithMode: (folderId: string, mode: "folder_only" | "folder_and_feeds") => Promise<void>;
@@ -108,6 +109,20 @@ export const useFeedStore = create<FeedStore>((set, get) => ({
 		if (json.success) {
 			set((state) => ({
 				feeds: state.feeds.map((f) => (f.id === feedId ? { ...f, folderId } : f)),
+			}));
+		}
+	},
+
+	updateFeed: async (feedId, data) => {
+		const res = await fetch(`/api/feeds/${feedId}`, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(data),
+		});
+		const json = await res.json() as { success: boolean; data: FeedWithUnreadCount };
+		if (json.success) {
+			set((state) => ({
+				feeds: state.feeds.map((f) => (f.id === feedId ? json.data : f)),
 			}));
 		}
 	},

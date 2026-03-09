@@ -3,6 +3,7 @@ import { useState, useRef, useCallback } from "react";
 import { useFeedStore } from "@/lib/store/feedStore";
 import { useArticleStore } from "@/lib/store/articleStore";
 import { ContextMenu, type ContextMenuItem } from "@/components/common/ContextMenu";
+import { EditFeedDialog } from "@/components/common/EditFeedDialog";
 import { cn } from "@/lib/utils/cn";
 import type { FeedWithUnreadCount } from "@/lib/db/schema";
 
@@ -14,10 +15,11 @@ interface FeedItemProps {
 const LONG_PRESS_DURATION = 400; // 长按触发时间（毫秒）
 
 export function FeedItem({ feed, isSelected }: FeedItemProps) {
-	const { selectedSource, setSelectedSource, deleteFeed } = useFeedStore();
+	const { selectedSource, setSelectedSource, deleteFeed, updateFeed } = useFeedStore();
 	const { fetchArticles } = useArticleStore();
 	const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 	const [isPressing, setIsPressing] = useState(false);
+	const [showEditDialog, setShowEditDialog] = useState(false);
 
 	const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 	const startPos = useRef<{ x: number; y: number } | null>(null);
@@ -108,7 +110,22 @@ export function FeedItem({ feed, isSelected }: FeedItemProps) {
 		hasTriggeredLongPress.current = false;
 	};
 
+	const handleEditClick = () => {
+		setContextMenu(null);
+		setShowEditDialog(true);
+	};
+
+	const handleEditConfirm = async (title: string, url: string) => {
+		await updateFeed(feed.id, { title, url });
+		setShowEditDialog(false);
+	};
+
 	const menuItems: ContextMenuItem[] = [
+		{
+			label: "编辑",
+			icon: "✏️",
+			onClick: handleEditClick,
+		},
 		{
 			label: "刷新",
 			icon: "↻",
@@ -216,6 +233,14 @@ export function FeedItem({ feed, isSelected }: FeedItemProps) {
 					onClose={() => setContextMenu(null)}
 				/>
 			)}
+
+			<EditFeedDialog
+				isOpen={showEditDialog}
+				feedTitle={feed.title}
+				feedUrl={feed.url}
+				onConfirm={handleEditConfirm}
+				onCancel={() => setShowEditDialog(false)}
+			/>
 		</>
 	);
 }

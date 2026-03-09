@@ -31,6 +31,7 @@ export async function PUT(request: Request, { params }: Params) {
 		const { id } = await params;
 		const body = await request.json() as {
 			title?: string;
+			url?: string;
 			folderId?: string | null;
 			sortOrder?: number;
 		};
@@ -43,6 +44,7 @@ export async function PUT(request: Request, { params }: Params) {
 			updatedAt: new Date().toISOString(),
 		};
 		if (body.title !== undefined) updates.title = body.title.trim();
+		if (body.url !== undefined) updates.url = body.url.trim();
 		if ("folderId" in body) updates.folderId = body.folderId;
 		if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder;
 
