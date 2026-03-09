@@ -49,9 +49,16 @@ export async function parseFeed(feedUrl: string): Promise<ParsedFeed> {
 	}
 
 	const xml = await response.text();
-	const feed = await rssParser.parseString(xml);
 
-	const articles: ParsedArticle[] = (feed.items ?? []).map((item) => {
+	// 使用 Promise 包装回调风格的 parseString 方法
+	const feed = await new Promise<any>((resolve, reject) => {
+		rssParser.parseString(xml, (err, result) => {
+			if (err) reject(err);
+			else resolve(result);
+		});
+	});
+
+	const articles: ParsedArticle[] = (feed.items ?? []).map((item: any) => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const anyItem = item as any;
 		// RSS 内容可能在不同字段：content:encoded (全文), content, description, summary
