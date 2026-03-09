@@ -16,31 +16,38 @@ interface ArticleStore {
 	page: number;
 	hasMore: boolean;
 	sortOrder: "desc" | "asc";
+	showUnreadOnly: boolean; // 只看未读
 
 	// Actions
-	fetchArticles: (source: SelectedSource, reset?: boolean) => Promise<void>;
+	fetchArticles: (source: SelectedSource, reset?: boolean, overrides?: { sortOrder?: "desc" | "asc"; showUnreadOnly?: boolean }) => Promise<void>;
 	fetchMoreArticles: (source: SelectedSource) => Promise<void>;
 	selectArticle: (articleId: string | null) => Promise<void>;
 	markRead: (articleId: string, isRead: boolean) => Promise<void>;
 	toggleStarred: (articleId: string) => Promise<void>;
 	toggleReadLater: (articleId: string) => Promise<void>;
 	setSortOrder: (order: "desc" | "asc") => void;
+	setShowUnreadOnly: (show: boolean) => void;
 	navigateArticle: (direction: "prev" | "next") => Promise<void>;
 }
 
 const PAGE_SIZE = 30;
 
-function buildArticleUrl(source: SelectedSource, page: number, sortOrder: string): string {
+function buildArticleUrl(source: SelectedSource, page: number, sortOrder: string, showUnreadOnly: boolean): string {
 	const params = new URLSearchParams({
 		page: String(page),
 		pageSize: String(PAGE_SIZE),
 		sort: sortOrder,
 	});
 
-	if (source.type === "feed") params.set("feedId", source.feedId);
-	else if (source.type === "folder") params.set("folderId", source.folderId);
-	else if (source.type === "starred") params.set("filter", "starred");
+	if (source.type === "feed") {
+		params.set("feedId", source.feedId);
+		if (showUnreadOnly) params.set("filter", "unread");
+	} else if (source.type === "folder") {
+		params.set("folderId", source.folderId);
+		if (showUnreadOnly) params.set("filter", "unread");
+	} else if (source.type === "starred") params.set("filter", "starred");
 	else if (source.type === "read_later") params.set("filter", "read_later");
+	else if (source.type === "unread") params.set("filter", "unread");
 
 	return `/api/articles?${params.toString()}`;
 }
@@ -55,11 +62,14 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
 	page: 1,
 	hasMore: false,
 	sortOrder: "desc",
+	showUnreadOnly: false,
 
-	fetchArticles: async (source, reset = true) => {
+	fetchArticles: async (source, reset = true, overrides) => {
 		set({ isLoading: true });
 		try {
-			const url = buildArticleUrl(source, 1, get().sortOrder);
+			const sortOrder = overrides?.sortOrder ?? get().sortOrder;
+			const showUnreadOnly = overrides?.showUnreadOnly ?? get().showUnreadOnly;
+			const url = buildArticleUrl(source, 1, sortOrder, showUnreadOnly);
 			const res = await fetch(url);
 			const json = await res.json() as {
 				success: boolean;
@@ -87,7 +97,7 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
 		set({ isLoading: true });
 		try {
 			const nextPage = page + 1;
-			const url = buildArticleUrl(source, nextPage, get().sortOrder);
+			const url = buildArticleUrl(source, nextPage, get().sortOrder, get().showUnreadOnly);
 			const res = await fetch(url);
 			const json = await res.json() as {
 				success: boolean;
@@ -182,7 +192,15 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
 		});
 	},
 
-	setSortOrder: (sortOrder) => set({ sortOrder }),
+	setSortOrder: (sortOrder) => {
+		set({ sortOrder });
+		return sortOrder;
+	},
+
+	setShowUnreadOnly: (showUnreadOnly) => {
+		set({ showUnreadOnly });
+		return showUnreadOnly;
+	},
 
 	navigateArticle: async (direction) => {
 		const { articles, selectedArticleId } = get();

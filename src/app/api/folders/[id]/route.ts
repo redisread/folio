@@ -1,6 +1,6 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { apiSuccess, apiError, getDatabase, getAuthenticatedUser } from "@/lib/api";
-import { folders } from "@/lib/db/schema";
+import { folders, feeds, articles } from "@/lib/db/schema";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -70,9 +70,29 @@ export async function DELETE(request: Request, { params }: Params) {
 		const { userId } = auth;
 
 		const { id } = await params;
+		const { searchParams } = new URL(request.url);
+		const deleteFeeds = searchParams.get("deleteFeeds") === "true";
+
 		const db = getDatabase();
 		const [existing] = await db.select().from(folders).where(and(eq(folders.id, id), eq(folders.userId, userId)));
 		if (!existing) return apiError("文件夹不存在", 404);
+
+		if (deleteFeeds) {
+			// 获取该文件夹下的所有订阅源
+			const folderFeeds = await db
+				.select({ id: feeds.id })
+				.from(feeds)
+				.where(and(eq(feeds.folderId, id), eq(feeds.userId, userId)));
+			const feedIds = folderFeeds.map((f) => f.id);
+
+			// 删除相关文章
+			if (feedIds.length > 0) {
+				await db.delete(articles).where(inArray(articles.feedId, feedIds));
+			}
+
+			// 删除订阅源
+			await db.delete(feeds).where(and(eq(feeds.folderId, id), eq(feeds.userId, userId)));
+		}
 
 		await db.delete(folders).where(and(eq(folders.id, id), eq(folders.userId, userId)));
 		return apiSuccess({ id });

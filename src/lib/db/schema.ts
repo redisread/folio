@@ -137,6 +137,6 @@ export type Article = typeof articles.$inferSelect;
 export type NewArticle = typeof articles.$inferInsert;
 
 // 带未读数的订阅源类型
-export type FeedWithUnreadCount = Feed & { unreadCount: number };
+export type FeedWithUnreadCount = Feed & { unreadCount: number; articleCount?: number };
 // 带文章数的文件夹类型
 export type FolderWithFeeds = Folder & { feeds: FeedWithUnreadCount[] };

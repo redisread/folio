@@ -37,11 +37,22 @@ export async function GET(request: Request) {
 			.where(eq(articles.isRead, false))
 			.groupBy(articles.feedId);
 
+		// 批量获取文章总数
+		const articleCounts = await db
+			.select({
+				feedId: articles.feedId,
+				count: sql<number>`count(*)`.as("count"),
+			})
+			.from(articles)
+			.groupBy(articles.feedId);
+
 		const unreadMap = new Map(unreadCounts.map((r) => [r.feedId, r.count]));
+		const articleCountMap = new Map(articleCounts.map((r) => [r.feedId, r.count]));
 
 		const result = feedList.map((feed) => ({
 			...feed,
 			unreadCount: unreadMap.get(feed.id) ?? 0,
+			articleCount: articleCountMap.get(feed.id) ?? 0,
 		}));
 
 		return apiSuccess(result);

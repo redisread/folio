@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useFeedStore } from "@/lib/store/feedStore";
 import { useArticleStore } from "@/lib/store/articleStore";
 import { FeedItem } from "./FeedItem";
 import { ContextMenu, type ContextMenuItem } from "@/components/common/ContextMenu";
+import { DeleteFolderDialog, type DeleteFolderMode } from "@/components/common/DeleteFolderDialog";
 import { cn } from "@/lib/utils/cn";
 import type { Folder, FeedWithUnreadCount } from "@/lib/db/schema";
 
@@ -12,19 +13,31 @@ interface FolderItemProps {
 	feeds: FeedWithUnreadCount[];
 }
 
+const LONG_PRESS_DURATION = 400; // 长按触发时间（毫秒）
+
 export function FolderItem({ folder, feeds }: FolderItemProps) {
-	const { selectedSource, setSelectedSource, toggleFolderCollapsed, deleteFolder, renameFolder } =
+	const { selectedSource, setSelectedSource, toggleFolderCollapsed, deleteFolder, deleteFolderWithMode, renameFolder } =
 		useFeedStore();
 	const { fetchArticles } = useArticleStore();
 	const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 	const [isRenaming, setIsRenaming] = useState(false);
 	const [renameValue, setRenameValue] = useState(folder.name);
+	const [isPressing, setIsPressing] = useState(false);
+	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+	const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+	const startPos = useRef<{ x: number; y: number } | null>(null);
+	const hasTriggeredLongPress = useRef(false);
 
 	const isCollapsed = folder.isCollapsed ?? false;
 	const isFolderSelected = selectedSource.type === "folder" && selectedSource.folderId === folder.id;
 	const totalUnread = feeds.reduce((sum, f) => sum + (f.unreadCount ?? 0), 0);
 
 	const handleFolderClick = () => {
+		if (hasTriggeredLongPress.current) {
+			hasTriggeredLongPress.current = false;
+			return;
+		}
 		if (isRenaming) return;
 		const source = { type: "folder" as const, folderId: folder.id };
 		setSelectedSource(source);
@@ -41,11 +54,88 @@ export function FolderItem({ folder, feeds }: FolderItemProps) {
 		setContextMenu({ x: e.clientX, y: e.clientY });
 	};
 
+	const handleLongPress = useCallback((clientX: number, clientY: number) => {
+		hasTriggeredLongPress.current = true;
+		setIsPressing(false);
+		setContextMenu({ x: clientX, y: clientY });
+	}, []);
+
+	const startLongPress = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+		const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+		const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+		startPos.current = { x: clientX, y: clientY };
+		hasTriggeredLongPress.current = false;
+		setIsPressing(true);
+
+		longPressTimer.current = setTimeout(() => {
+			handleLongPress(clientX, clientY);
+		}, LONG_PRESS_DURATION);
+	}, [handleLongPress]);
+
+	const cancelLongPress = useCallback(() => {
+		if (longPressTimer.current) {
+			clearTimeout(longPressTimer.current);
+			longPressTimer.current = null;
+		}
+		setIsPressing(false);
+	}, []);
+
+	const handleTouchStart = (e: React.TouchEvent) => {
+		startLongPress(e);
+	};
+
+	const handleTouchMove = (e: React.TouchEvent) => {
+		if (!startPos.current) return;
+
+		const touch = e.touches[0];
+		const deltaX = Math.abs(touch.clientX - startPos.current.x);
+		const deltaY = Math.abs(touch.clientY - startPos.current.y);
+
+		if (deltaX > 10 || deltaY > 10) {
+			cancelLongPress();
+		}
+	};
+
+	const handleTouchEnd = () => {
+		cancelLongPress();
+		setTimeout(() => {
+			hasTriggeredLongPress.current = false;
+		}, 50);
+	};
+
+	const handleMouseDown = (e: React.MouseEvent) => {
+		if (e.button !== 0) return;
+		startLongPress(e);
+	};
+
+	const handleMouseUp = () => {
+		cancelLongPress();
+		setTimeout(() => {
+			hasTriggeredLongPress.current = false;
+		}, 50);
+	};
+
+	const handleMouseLeave = () => {
+		cancelLongPress();
+		hasTriggeredLongPress.current = false;
+	};
+
 	const handleRenameSubmit = async () => {
 		if (renameValue.trim() && renameValue !== folder.name) {
 			await renameFolder(folder.id, renameValue.trim());
 		}
 		setIsRenaming(false);
+	};
+
+	const handleDeleteClick = () => {
+		setContextMenu(null);
+		setShowDeleteDialog(true);
+	};
+
+	const handleDeleteConfirm = async (mode: DeleteFolderMode) => {
+		await deleteFolderWithMode(folder.id, mode);
+		setShowDeleteDialog(false);
 	};
 
 	const menuItems: ContextMenuItem[] = [
@@ -61,7 +151,7 @@ export function FolderItem({ folder, feeds }: FolderItemProps) {
 			label: "删除文件夹",
 			icon: "🗑",
 			variant: "danger",
-			onClick: () => deleteFolder(folder.id),
+			onClick: handleDeleteClick,
 		},
 	];
 
@@ -70,14 +160,22 @@ export function FolderItem({ folder, feeds }: FolderItemProps) {
 			{/* 文件夹头部 */}
 			<div
 				className={cn(
-					"flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer",
+					"flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer relative",
 					"transition-all duration-[var(--transition-base)]",
+					"select-none [-webkit-user-select:none] [-webkit-touch-callout:none] [touch-action:manipulation]",
 					isFolderSelected
 						? "bg-[var(--accent-light)] text-[var(--accent)]"
-						: "text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
+						: "text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]",
+					isPressing && "scale-[0.98] bg-[var(--bg-card-hover)]"
 				)}
 				onClick={handleFolderClick}
 				onContextMenu={handleContextMenu}
+				onTouchStart={handleTouchStart}
+				onTouchMove={handleTouchMove}
+				onTouchEnd={handleTouchEnd}
+				onMouseDown={handleMouseDown}
+				onMouseUp={handleMouseUp}
+				onMouseLeave={handleMouseLeave}
 			>
 				{/* 折叠箭头 */}
 				<button
@@ -130,7 +228,27 @@ export function FolderItem({ folder, feeds }: FolderItemProps) {
 						{totalUnread}
 					</span>
 				)}
+
+				{/* 长按进度指示器 */}
+				{isPressing && (
+					<div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none">
+						<div
+							className="absolute bottom-0 left-0 h-0.5 bg-[var(--accent)] transition-all duration-100"
+							style={{
+								width: "100%",
+								animation: `longPress ${LONG_PRESS_DURATION}ms linear forwards`,
+							}}
+						/>
+					</div>
+				)}
 			</div>
+
+			<style jsx>{`
+				@keyframes longPress {
+					from { transform: scaleX(0); transform-origin: left; }
+					to { transform: scaleX(1); transform-origin: left; }
+				}
+			`}</style>
 
 			{/* 订阅源列表（展开时显示） */}
 			{!isCollapsed && feeds.length > 0 && (
@@ -155,6 +273,14 @@ export function FolderItem({ folder, feeds }: FolderItemProps) {
 					onClose={() => setContextMenu(null)}
 				/>
 			)}
+
+			<DeleteFolderDialog
+				isOpen={showDeleteDialog}
+				folderName={folder.name}
+				feedCount={feeds.length}
+				onConfirm={handleDeleteConfirm}
+				onCancel={() => setShowDeleteDialog(false)}
+			/>
 		</div>
 	);
 }

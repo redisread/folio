@@ -4,6 +4,7 @@ import type { Folder, FeedWithUnreadCount } from "@/lib/db/schema";
 
 export type SelectedSource =
 	| { type: "all" }
+	| { type: "unread" }
 	| { type: "starred" }
 	| { type: "read_later" }
 	| { type: "feed"; feedId: string }
@@ -29,6 +30,7 @@ interface FeedStore {
 	moveFeedToFolder: (feedId: string, folderId: string | null) => Promise<void>;
 	addFolder: (name: string, color?: string) => Promise<void>;
 	deleteFolder: (folderId: string) => Promise<void>;
+	deleteFolderWithMode: (folderId: string, mode: "folder_only" | "folder_and_feeds") => Promise<void>;
 	renameFolder: (folderId: string, name: string) => Promise<void>;
 	refresh: (feedId?: string) => Promise<void>;
 }
@@ -128,6 +130,26 @@ export const useFeedStore = create<FeedStore>((set, get) => ({
 			folders: state.folders.filter((f) => f.id !== folderId),
 			feeds: state.feeds.map((f) => (f.folderId === folderId ? { ...f, folderId: null } : f)),
 		}));
+	},
+
+	deleteFolderWithMode: async (folderId, mode) => {
+		const folderFeeds = get().feeds.filter((f) => f.folderId === folderId);
+
+		if (mode === "folder_and_feeds") {
+			// 删除文件夹及其所有订阅源
+			await fetch(`/api/folders/${folderId}?deleteFeeds=true`, { method: "DELETE" });
+			set((state) => ({
+				folders: state.folders.filter((f) => f.id !== folderId),
+				feeds: state.feeds.filter((f) => f.folderId !== folderId),
+			}));
+		} else {
+			// 仅删除文件夹，订阅源变为未归类
+			await fetch(`/api/folders/${folderId}`, { method: "DELETE" });
+			set((state) => ({
+				folders: state.folders.filter((f) => f.id !== folderId),
+				feeds: state.feeds.map((f) => (f.folderId === folderId ? { ...f, folderId: null } : f)),
+			}));
+		}
 	},
 
 	renameFolder: async (folderId, name) => {

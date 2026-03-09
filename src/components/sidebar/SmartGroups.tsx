@@ -10,6 +10,15 @@ const SMART_GROUPS: Array<{
 	icon: React.ReactNode;
 }> = [
 	{
+		type: "unread",
+		label: "未读文章",
+		icon: (
+			<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+				<path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0020 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+			</svg>
+		),
+	},
+	{
 		type: "all",
 		label: "全部文章",
 		icon: (
@@ -44,11 +53,13 @@ export function SmartGroups() {
 
 	// 计算各分组的计数
 	const totalUnread = feeds.reduce((sum, f) => sum + (f.unreadCount ?? 0), 0);
+	const totalArticles = feeds.reduce((sum, f) => sum + (f.articleCount ?? 0), 0);
 	const starredCount = 0; // 从 API 获取
 	const readLaterCount = 0;
 
 	const counts: Record<string, number> = {
-		all: totalUnread,
+		unread: totalUnread,
+		all: totalArticles,
 		starred: starredCount,
 		read_later: readLaterCount,
 	};

@@ -33,19 +33,32 @@ const rssParser = new Parser({
 			["enclosure", "enclosure"],
 		],
 	},
-	timeout: 10000,
 });
 
 /** 从 RSS/Atom/JSON Feed 解析订阅源数据 */
 export async function parseFeed(feedUrl: string): Promise<ParsedFeed> {
-	const feed = await rssParser.parseURL(feedUrl);
+	// 使用 fetch 获取 XML 内容，然后使用 parseString 解析
+	// 因为 parseURL 内部使用 Node.js http/https 模块，在 Cloudflare Workers 中不可用
+	const response = await fetch(feedUrl, {
+		headers: { "User-Agent": "Folio RSS Reader/1.0" },
+		signal: AbortSignal.timeout(10000),
+	});
+
+	if (!response.ok) {
+		throw new Error(`HTTP error! status: ${response.status}`);
+	}
+
+	const xml = await response.text();
+	const feed = await rssParser.parseString(xml);
 
 	const articles: ParsedArticle[] = (feed.items ?? []).map((item) => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const anyItem = item as any;
+		// RSS 内容可能在不同字段：content:encoded (全文), content, description, summary
 		const rawContent =
 			anyItem.contentEncoded ||
 			item.content ||
+			anyItem.description ||
 			item.summary ||
 			"";
 
@@ -60,7 +73,7 @@ export async function parseFeed(feedUrl: string): Promise<ParsedFeed> {
 			title: item.title ?? "(无标题)",
 			url: item.link ?? item.guid ?? "",
 			content: rawContent,
-			summary: item.summary ? extractSummary(item.summary) : extractSummary(rawContent),
+			summary: extractSummary(rawContent),
 			author: anyItem.creator || anyItem.author || "",
 			imageUrl,
 			publishedAt: item.isoDate || item.pubDate || null,
