@@ -1,57 +1,28 @@
 {
-	"name": "folio",
-	"version": "0.1.0",
-	"private": true,
-	"scripts": {
-		"dev": "next dev",
-		"build": "next build",
-		"start": "next start",
-		"lint": "next lint",
-		"deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-		"upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
-		"preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-		"cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts",
-		"db:migrate:local": "wrangler d1 migrations apply folio-rss-db --local",
-		"db:migrate:create": "drizzle-kit generate",
-		"db:reset:local": "rm -rf .wrangler/state/v3/d1 && echo '本地数据库已重置'",
-		"dev:setup": "npm run db:migrate:local && npm run dev",
-		"preview:setup": "npm run db:migrate:local && npm run preview"
-	},
-	"dependencies": {
-		"@libsql/client": "^0.17.0",
-		"@opennextjs/cloudflare": "^1.17.1",
-		"@serwist/core": "^9.5.6",
-		"@serwist/next": "^9.5.6",
-		"@serwist/precaching": "^9.5.6",
-		"@serwist/sw": "^9.5.6",
-		"@use-gesture/react": "^10.3.1",
-		"better-auth": "^1.5.4",
-		"clsx": "^2.1.1",
-		"dompurify": "^3.3.2",
-		"drizzle-orm": "^0.45.1",
-		"framer-motion": "^12.35.1",
-		"isomorphic-dompurify": "^3.0.0",
-		"next": "16.1.5",
-		"react": "19.1.5",
-		"react-dom": "19.1.5",
-		"rss-parser": "^3.13.0",
-		"tailwind-merge": "^3.5.0",
-		"workbox-window": "^7.4.0",
-		"zustand": "^5.0.11"
-	},
-	"devDependencies": {
-		"@eslint/eslintrc": "^3",
-		"@tailwindcss/postcss": "^4",
-		"@types/dompurify": "^3.0.5",
-		"@types/node": "^20.19.37",
-		"@types/react": "^19.1.5",
-		"@types/react-dom": "^19.1.5",
-		"drizzle-kit": "^0.31.9",
-		"eslint": "^9",
-		"eslint-config-next": "15.4.6",
-		"sharp": "^0.34.5",
-		"tailwindcss": "^4",
-		"typescript": "^5.7.4",
-		"wrangler": "^4.71.0"
-	}
+  "name": "collect",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Collect RSS Reader - A modern RSS reader built with Hono, Astro, and Flutter",
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "dev:api": "pnpm --filter api dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "build": "pnpm -r build",
+    "build:api": "pnpm --filter api build",
+    "build:frontend": "pnpm --filter frontend build",
+    "deploy:api": "pnpm --filter api deploy",
+    "deploy:frontend": "pnpm --filter frontend deploy",
+    "deploy": "pnpm deploy:api && pnpm deploy:frontend",
+    "lint": "pnpm -r lint",
+    "type-check": "pnpm -r type-check",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.4"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.0.0"
 }

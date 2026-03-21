@@ -1,0 +1,21 @@
+name = "collect-api"
+main = "src/index.ts"
+compatibility_date = "2026-03-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "collect-db"
+database_id = "local-collect-db"
+migrations_dir = "drizzle/migrations"
+
+[[kv_namespaces]]
+binding = "COLLECT_KV"
+id = "local-collect-kv"
+
+[[r2_buckets]]
+binding = "COLLECT_R2"
+bucket_name = "collect-cache"

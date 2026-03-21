@@ -4,107 +4,85 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-基于 [OpenNext](https://opennext.js.org/cloudflare) 的 Next.js 应用，部署到 **Cloudflare Workers**。使用 `@opennextjs/cloudflare` 适配器将 Next.js 运行在 Cloudflare Workers 运行时上。
+**Collect** — 现代 RSS 阅读器，采用 pnpm monorepo 管理，包含三个子包：
 
-- Next.js 16 + React 19
-- Tailwind CSS v4
-- TypeScript
-- 部署目标：Cloudflare Workers（非 Pages）
+| 子包 | 技术栈 | 部署目标 |
+|------|--------|----------|
+| `api/` | Hono + Cloudflare Workers + D1 + Better Auth | Cloudflare Workers |
+| `frontend/` | Astro 6 + React Islands + Tailwind CSS v4 + shadcn/ui | Cloudflare Pages |
+| `mobile/` | Flutter 3 + Riverpod + go_router | iOS / Android |
+
+共享包：
+- `packages/types/` — 共享 TypeScript 类型和 Zod schema
+- `packages/config/` — 共享 ESLint 和 TypeScript 配置
 
 ## 常用命令
 
 ```bash
-# 本地 Next.js 开发服务器（不含 Cloudflare 运行时）
-npm run dev
+# 全局（在根目录执行）
+pnpm dev              # 并行启动所有服务
+pnpm dev:api          # 仅启动后端（端口 8787）
+pnpm dev:frontend     # 仅启动前端（端口 4321）
+pnpm build            # 构建所有子包
+pnpm deploy           # 部署所有子包
+pnpm lint             # 检查所有子包
 
-# 在 Cloudflare Workers 运行时本地预览（推荐测试）
-npm run preview
+# 后端（api/）
+pnpm --filter api dev
+pnpm --filter api deploy
+pnpm --filter api db:migrate:local   # 本地数据库迁移
 
-# 构建并部署到 Cloudflare
-npm run deploy
+# 前端（frontend/）
+pnpm --filter frontend dev
+pnpm --filter frontend deploy
 
-# 仅构建上传 Worker 资产（不部署）
-npm run upload
-
-# 生成 Cloudflare 环境类型定义
-npm run cf-typegen
+# 移动端（mobile/）
+cd mobile && flutter run
+cd mobile && flutter build ios
+cd mobile && flutter build apk
 ```
 
 ## 架构说明
 
-### 构建流程
+### 后端（api/）
 
-`npm run preview` / `npm run deploy` 会先执行 `opennextjs-cloudflare build`，将 Next.js 构建产物转换为 Cloudflare Workers 兼容格式，输出到 `.open-next/` 目录。
+Hono 框架运行在 Cloudflare Workers 上，提供 REST API：
 
-### 关键配置文件
+- `GET/POST /api/folders` — 文件夹管理
+- `GET/POST /api/feeds` — 订阅源管理
+- `GET/PUT /api/articles` — 文章管理
+- `POST /api/auth/*` — Better Auth 认证
+- `POST /api/refresh` — RSS 刷新
+- `GET/POST /api/opml` — OPML 导入导出
 
-| 文件 | 用途 |
-|------|------|
-| `open-next.config.ts` | OpenNext 适配器配置（缓存策略、override 等） |
-| `next.config.ts` | Next.js 配置，已包含 `initOpenNextCloudflareForDev()` |
-| `wrangler.jsonc` | Cloudflare Worker 配置（bindings、兼容性日期等） |
-| `.dev.vars` | 本地开发环境变量（含 `NEXTJS_ENV=development`） |
-| `public/_headers` | 静态资源缓存规则 |
+通过 `c.env.DB`（D1）、`c.env.COLLECT_KV`（KV）、`c.env.COLLECT_R2`（R2）访问 Cloudflare 资源。
 
-### 访问 Cloudflare Bindings
+### 前端（frontend/）
 
-在 Server Components、Route Handlers、Server Actions 中通过 `getCloudflareContext()` 访问 KV、R2、D1 等 bindings：
+Astro 6 静态优先，交互部分使用 React Islands（`client:load`）。
 
-```typescript
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+- Astro 页面：`src/pages/`（SSR/SSG）
+- React Islands：`src/components/app/`（客户端交互）
+- API 客户端：`src/lib/api.ts`（调用 collect-api）
+- 状态管理：Zustand stores
 
-export async function GET(request: Request) {
-  const { env, cf, ctx } = getCloudflareContext();
-  const value = await env.MY_KV_NAMESPACE.get("key");
-  return Response.json({ value });
-}
+### 移动端（mobile/）
+
+Flutter 跨平台应用，通过 Dio 调用 collect-api。
+
+- 状态管理：Riverpod
+- 路由：go_router
+- API 地址：`--dart-define=API_BASE_URL=<url>` 注入
+
+## Cloudflare Bindings
+
+修改 bindings 后运行：
+```bash
+pnpm --filter api cf-typegen
 ```
 
-在 SSG 路由中需使用异步模式：`getCloudflareContext({ async: true })`。
+## 注意事项
 
-修改 bindings 后运行 `npm run cf-typegen` 更新 `cloudflare-env.d.ts` 类型定义。
-
-## OpenNext / Cloudflare Workers 限制
-
-### 运行时要求
-
-- `wrangler` 版本须 `>= 3.99.0`
-- `wrangler.jsonc` 中必须启用 `nodejs_compat` 兼容性标志，兼容性日期须 `>= 2024-09-23`
-
-### 不支持的功能
-
-- **禁止**在页面/路由中使用 `export const runtime = "edge"`，Cloudflare 适配器使用 Node.js 运行时而非 Edge 运行时
-- Next.js 15.2+ 的 Node Middleware 暂不支持
-- 不可使用 `@cloudflare/next-on-pages`，须用 `@opennextjs/cloudflare`
-
-### Worker 大小限制
-
-- Free 计划：压缩后 3 MiB
-- Paid 计划：压缩后 10 MiB
-
-### 开发平台
-
-Windows 不完全支持，建议使用 macOS / Linux / WSL。
-
-## 缓存配置（ISR）
-
-在 `open-next.config.ts` 中配置缓存策略，根据站点规模选择：
-
-- **小型站点**：R2 增量缓存 + DO Queue + D1 Tag Cache
-- **大型站点**：R2 增量缓存 + DO Queue + ShardedDO Tag Cache
-- **纯静态站点**：Workers Static Assets 增量缓存
-
-启用 R2 缓存示例：
-
-```typescript
-import { defineCloudflareConfig } from "@opennextjs/cloudflare";
-import r2IncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/r2-incremental-cache";
-
-export default defineCloudflareConfig({
-  incrementalCache: r2IncrementalCache,
-});
-```
-
-## .gitignore 注意事项
-
-确保 `.open-next/` 已加入 `.gitignore`（构建产物，不应提交）。
+- 禁止在 api/ 中使用 `export const runtime = "edge"`
+- 所有 API 响应格式：`{ success: boolean, data?: T, error?: string }`
+- Better Auth session 通过 Cookie 传递，移动端需手动管理 Cookie
